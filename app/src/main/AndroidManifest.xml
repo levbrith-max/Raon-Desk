@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.GnomeBazzite"
+        android:supportsRtl="true">
+
+        <!-- ═══════════════════════════════════════
+             LAUNCHER PRINCIPAL
+        ═══════════════════════════════════════ -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:screenOrientation="unspecified"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden"
+            android:windowSoftInputMode="adjustNothing">
+            <!-- Intent HOME = ce launcher devient le launcher principal -->
+            <intent-filter android:priority="1">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- App Store intégrée -->
+        <activity
+            android:name=".ui.store.AppStoreActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GnomeBazzite.Dark"
+            android:launchMode="singleTop" />
+
+        <!-- WebApp viewer pour les apps intégrées -->
+        <activity
+            android:name=".WebAppActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GnomeBazzite.Dark"
+            android:configChanges="orientation|screenSize" />
+
+        <!-- Settings launcher -->
+        <activity
+            android:name=".ui.store.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GnomeBazzite.Dark" />
+
+        <!-- Boot receiver pour se relancer au démarrage -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Provider pour partager des fichiers entre activités -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>
