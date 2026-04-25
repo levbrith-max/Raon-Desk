@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="26dp"
+    android:background="@color/window_titlebar"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="8dp">
+
+    <View android:id="@+id/btnWindowClose"
+        android:layout_width="10dp" android:layout_height="10dp"
+        android:background="@drawable/window_btn_close" android:layout_marginEnd="5dp"
+        android:clickable="true" android:focusable="true"/>
+
+    <View android:id="@+id/btnWindowMin"
+        android:layout_width="10dp" android:layout_height="10dp"
+        android:background="@drawable/window_btn_min" android:layout_marginEnd="5dp"
+        android:clickable="true" android:focusable="true"/>
+
+    <View android:id="@+id/btnWindowMax"
+        android:layout_width="10dp" android:layout_height="10dp"
+        android:background="@drawable/window_btn_max"
+        android:clickable="true" android:focusable="true"/>
+
+    <TextView android:id="@+id/tvWindowTitle"
+        android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="Fenêtre"
+        android:textColor="#66C8C0FF"
+        android:textSize="10sp"
+        android:ellipsize="end"
+        android:singleLine="true"/>
+</LinearLayout>
