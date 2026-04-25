@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="36dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="8dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="@drawable/popup_row_bg">
+
+    <TextView android:id="@+id/ivPopupRowIcon"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:gravity="center"
+        android:text="🎮"
+        android:textSize="14sp"/>
+
+    <TextView android:id="@+id/tvPopupRowLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="Menu item"
+        android:textColor="#DDFFFFFF"
+        android:textSize="11sp"/>
+</LinearLayout>
