@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GNOME Bazzite Launcher</string>
+    <string name="activities">Activities</string>
+    <string name="search_hint">Rechercher des applications…</string>
+    <string name="app_store_title">Bazaar · App Store intégré</string>
+    <string name="install">Installer</string>
+    <string name="uninstall">Désinstaller</string>
+    <string name="open">Ouvrir</string>
+    <string name="installing">Installation…</string>
+    <string name="installed">Installée</string>
+    <string name="overview_desktop">Bureau actuel</string>
+</resources>

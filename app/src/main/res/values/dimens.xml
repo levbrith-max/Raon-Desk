@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="topbar_height">28dp</dimen>
+    <dimen name="taskbar_height">52dp</dimen>
+    <dimen name="side_launcher_width">48dp</dimen>
+    <dimen name="dash_icon_size">36dp</dimen>
+    <dimen name="app_grid_icon_size">48dp</dimen>
+    <dimen name="app_grid_icon_size_portrait">44dp</dimen>
+    <dimen name="window_corner_radius">10dp</dimen>
+    <dimen name="window_titlebar_height">26dp</dimen>
+    <dimen name="popup_corner_radius">10dp</dimen>
+    <dimen name="card_corner_radius">12dp</dimen>
+</resources>

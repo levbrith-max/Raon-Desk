@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ═══ COULEURS GNOME BAZZITE ═══ -->
+    <color name="gnome_bg">#FF050608</color>
+    <color name="topbar_bg">#E614141F</color>
+    <color name="taskbar_bg">#E614141F</color>
+    <color name="dash_bg">#CC1A1B2E</color>
+    <color name="popup_bg">#F01E2030</color>
+    <color name="card_bg">#19FFFFFF</color>
+    <color name="side_launcher_bg">#EE0F0F1C</color>
+    <color name="drawer_overlay_bg">#CC0D0E1A</color>
+    <color name="transparent">#00000000</color>
+
+    <!-- ═══ ACCENTS ═══ -->
+    <color name="accent_violet">#FF7C6FF7</color>
+    <color name="accent_violet_dim">#667C6FF7</color>
+    <color name="accent_green">#FF28C840</color>
+    <color name="ubuntu_orange">#FFE65400</color>
+    <color name="ubuntu_orange_dim">#44E65400</color>
+    <color name="window_close_red">#FFFF5F57</color>
+    <color name="window_min_yellow">#FFFFBD2E</color>
+    <color name="window_max_green">#FF28C840</color>
+
+    <!-- ═══ TEXTE ═══ -->
+    <color name="text_primary">#FFE8E8FF</color>
+    <color name="text_secondary">#AAC8C0FF</color>
+    <color name="text_hint">#55C8C0FF</color>
+
+    <!-- ═══ BORDERS / DIVIDERS ═══ -->
+    <color name="divider_color">#22FFFFFF</color>
+    <color name="border_light">#18FFFFFF</color>
+    <color name="window_border">#22FFFFFF</color>
+    <color name="window_titlebar">#FF252840</color>
+    <color name="window_bg">#FF1E2030</color>
+    <color name="terminal_green">#FF7EE8A2</color>
+    <color name="terminal_bg">#FF0D0D1A</color>
+
+    <!-- Store colors -->
+    <color name="install_btn_bg">#FF7C6FF7</color>
+    <color name="uninstall_btn_bg">#55FF5F57</color>
+    <color name="progress_bar_color">#FF7C6FF7</color>
+</resources>
