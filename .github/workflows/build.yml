@@ -27,21 +27,13 @@ jobs:
         with:
           gradle-version: '8.4'
 
-      - name: Créer local.properties avec le chemin du SDK Android
-        run: |
-          echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
-          echo "local.properties créé :"
-          cat local.properties
-
-      - name: Vérifier que le SDK Android est bien là
-        run: |
-          ls /usr/local/lib/android/sdk/
-          echo "SDK Android trouvé ✓"
+      - name: Créer local.properties
+        run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
 
       - name: Build Debug APK
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GnomeBazziteLauncher-debug
