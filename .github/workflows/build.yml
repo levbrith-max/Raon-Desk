@@ -27,12 +27,23 @@ jobs:
         with:
           gradle-version: '8.4'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Find project root and build
+        run: |
+          # Cherche settings.gradle pour trouver le bon répertoire
+          PROJ=$(find . -name "settings.gradle" -not -path "*/build/*" | head -1 | xargs dirname)
+          echo "Projet trouvé dans : $PROJ"
+          cd "$PROJ"
+          gradle assembleDebug --stacktrace --no-daemon
+
+      - name: Find and upload APK
+        run: |
+          APK=$(find . -name "app-debug.apk" | head -1)
+          echo "APK trouvé : $APK"
+          cp "$APK" ./app-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: GnomeBazziteLauncher-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app-debug.apk
           retention-days: 30
