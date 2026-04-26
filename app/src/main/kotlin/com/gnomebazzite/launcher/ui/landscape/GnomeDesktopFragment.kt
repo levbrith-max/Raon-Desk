@@ -32,7 +32,10 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
     private lateinit var overviewCtrl: OverviewController
 
     private val clockRunnable = object : Runnable {
-        override fun run() { updateClock(); binding.tvTopbarClock.postDelayed(this, 30_000) }
+        override fun run() {
+            updateClock()
+            binding.tvTopbarClock.postDelayed(this, 30_000)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -94,23 +97,35 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
 
     private fun toggleBazzitePopup() {
         val popup = binding.popupBazziteMenu
-        if (popup.visibility == View.VISIBLE) { animatePopupOut(popup) }
+        if (popup.visibility == View.VISIBLE) animatePopupOut(popup)
         else { closeAllPopups(); animatePopupIn(popup); setupBazziteMenuItems() }
     }
 
     private fun setupBazziteMenuItems() {
-        listOf(
-            Triple(binding.popupRowGaming,  "🎮", "Retour Gaming Mode"),
-            Triple(binding.popupRowSteam,   "💨", "Lancer Steam"),
-            Triple(binding.popupRowSettings,"⚙️", "Paramètres système"),
-            Triple(binding.popupRowStore,   "📦", "Bazaar App Store")
-        ).forEachIndexed { idx, (row, icon, label) ->
-            row.findViewById<TextView>(R.id.ivPopupRowIcon)?.text = icon
-            row.findViewById<TextView>(R.id.tvPopupRowLabel)?.text = label
-            row.setOnClickListener {
-                closeAllPopups()
-                if (idx == 3) startActivity(Intent(requireContext(), AppStoreActivity::class.java))
+        // FIX: les <include> avec id génèrent un sous-binding — on accède aux vues via le binding enfant
+        data class Row(val root: View, val icon: TextView?, val label: TextView?, val act: () -> Unit)
+        val rows = listOf(
+            Row(binding.popupRowGaming.root,
+                binding.popupRowGaming.ivPopupRowIcon,
+                binding.popupRowGaming.tvPopupRowLabel) {},
+            Row(binding.popupRowSteam.root,
+                binding.popupRowSteam.ivPopupRowIcon,
+                binding.popupRowSteam.tvPopupRowLabel) {},
+            Row(binding.popupRowSettings.root,
+                binding.popupRowSettings.ivPopupRowIcon,
+                binding.popupRowSettings.tvPopupRowLabel) {},
+            Row(binding.popupRowStore.root,
+                binding.popupRowStore.ivPopupRowIcon,
+                binding.popupRowStore.tvPopupRowLabel) {
+                startActivity(Intent(requireContext(), AppStoreActivity::class.java))
             }
+        )
+        val icons  = listOf("🎮", "💨", "⚙️", "📦")
+        val labels = listOf("Retour Gaming Mode", "Lancer Steam", "Paramètres système", "Bazaar App Store")
+        rows.forEachIndexed { i, row ->
+            row.icon?.text  = icons[i]
+            row.label?.text = labels[i]
+            row.root.setOnClickListener { closeAllPopups(); row.act() }
         }
     }
 
@@ -121,7 +136,8 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
     }
 
     private fun animatePopupIn(v: View) {
-        v.visibility = View.VISIBLE; v.alpha = 0f; v.scaleX = 0.92f; v.scaleY = 0.92f; v.translationY = -6f
+        v.visibility = View.VISIBLE
+        v.alpha = 0f; v.scaleX = 0.92f; v.scaleY = 0.92f; v.translationY = -6f
         v.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
             .setDuration(180).setInterpolator(DecelerateInterpolator()).start()
     }
@@ -176,8 +192,6 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
         binding.cardDrawerContent.translationY = 100f; binding.cardDrawerContent.alpha = 0f
         binding.cardDrawerContent.animate().translationY(0f).alpha(1f).setDuration(300)
             .setInterpolator(DecelerateInterpolator(1.8f)).start()
-
-        // Stagger des icônes
         binding.rvAppGrid.postDelayed({
             val lm = binding.rvAppGrid.layoutManager as? GridLayoutManager ?: return@postDelayed
             for (i in 0 until lm.childCount) {
