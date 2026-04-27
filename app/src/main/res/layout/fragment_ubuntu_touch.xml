@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Portrait : Ubuntu Touch + GNOME mix -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/gnome_bg">
 
-    <!-- Fond radial -->
-    <View android:layout_width="match_parent" android:layout_height="match_parent"
+    <!-- ═══ FOND D'ÉCRAN ═══ -->
+    <ImageView
+        android:id="@+id/ivPortraitWallpaper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
         android:background="@drawable/wallpaper_gnome_gradient"/>
 
-    <!-- ═══════════════════════════════
-         TOP BAR (GNOME style)
-    ═══════════════════════════════ -->
+    <!-- ═══ TOP BAR GNOME ═══ -->
     <LinearLayout
         android:id="@+id/portraitTopBar"
         android:layout_width="match_parent"
@@ -37,10 +38,34 @@
             android:id="@+id/tvPortraitDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
+            android:layout_marginEnd="8dp"
             android:text="Jeu 24 Avr"
             android:textColor="@color/text_secondary"
             android:textSize="10sp"/>
+
+        <!-- Fond d'écran -->
+        <TextView
+            android:id="@+id/btnPortraitWallpaper"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:gravity="center"
+            android:text="🖼"
+            android:textSize="10sp"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginEnd="4dp"/>
+
+        <!-- Store -->
+        <TextView
+            android:id="@+id/btnPortraitStore"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:gravity="center"
+            android:text="📦"
+            android:textSize="10sp"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginEnd="4dp"/>
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -57,9 +82,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- ═══════════════════════════════
-         SIDE LAUNCHER (Ubuntu Touch, gauche)
-    ═══════════════════════════════ -->
+    <!-- ═══ SIDE LAUNCHER (Ubuntu Touch, gauche) ═══ -->
     <LinearLayout
         android:id="@+id/sideLauncherPanel"
         android:layout_width="48dp"
@@ -101,7 +124,7 @@
         <View android:layout_width="26dp" android:layout_height="0.5dp"
             android:background="@color/divider_color" android:layout_marginVertical="4dp"/>
 
-        <!-- DOSSIER → ouvre App Drawer style GNOME -->
+        <!-- 📂 Dossier → App Drawer -->
         <FrameLayout
             android:id="@+id/btnSideFolder"
             android:layout_width="38dp"
@@ -113,13 +136,12 @@
                 android:gravity="center" android:text="📂" android:textSize="17sp"/>
         </FrameLayout>
 
-        <!-- Spacer -->
         <Space android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
 
         <View android:layout_width="26dp" android:layout_height="0.5dp"
             android:background="@color/divider_color" android:layout_marginVertical="4dp"/>
 
-        <!-- App Store -->
+        <!-- Store -->
         <FrameLayout
             android:id="@+id/btnSideStore"
             android:layout_width="38dp"
@@ -143,193 +165,29 @@
             <TextView android:layout_width="match_parent" android:layout_height="match_parent"
                 android:gravity="center" android:text="⚙️" android:textSize="17sp"/>
         </FrameLayout>
-
     </LinearLayout>
 
-    <!-- ═══════════════════════════════
-         MAIN CONTENT (à droite du launcher)
-    ═══════════════════════════════ -->
-    <LinearLayout
+    <!-- ═══ ZONE PRINCIPALE = CANVAS VIDE POUR WIDGETS ═══ -->
+    <FrameLayout
+        android:id="@+id/widgetCanvas"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="22dp"
         android:layout_marginStart="48dp"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:background="@color/transparent"
+        android:longClickable="true"/>
 
-        <!-- Barre de recherche -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="34dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/search_bar_bg">
-            <TextView android:layout_width="wrap_content" android:layout_height="match_parent"
-                android:layout_gravity="center_vertical" android:paddingStart="12dp"
-                android:text="🔍" android:textSize="13sp"/>
-            <TextView android:layout_width="match_parent" android:layout_height="match_parent"
-                android:layout_marginStart="36dp"
-                android:gravity="center_vertical"
-                android:text="Rechercher apps, contacts…"
-                android:textColor="@color/text_hint"
-                android:textSize="11sp"/>
-        </FrameLayout>
-
-        <!-- Quick settings toggles -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardBackgroundColor="@color/card_bg"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:padding="10dp" android:orientation="vertical">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="ACCÈS RAPIDE" android:textColor="@color/text_hint"
-                    android:textSize="8sp" android:letterSpacing="0.08"
-                    android:layout_marginBottom="6dp"/>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal" android:weightSum="4">
-                    <!-- Wi-Fi -->
-                    <LinearLayout android:layout_width="0dp" android:layout_height="40dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
-                        android:layout_marginEnd="4dp"
-                        android:background="@drawable/qs_toggle_on">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🛜" android:textSize="14sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Wi-Fi" android:textColor="@color/accent_violet" android:textSize="8sp"/>
-                    </LinearLayout>
-                    <!-- Mobile -->
-                    <LinearLayout android:layout_width="0dp" android:layout_height="40dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
-                        android:layout_marginEnd="4dp"
-                        android:background="@drawable/qs_toggle_on">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="📶" android:textSize="14sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Mobile" android:textColor="@color/accent_violet" android:textSize="8sp"/>
-                    </LinearLayout>
-                    <!-- BT -->
-                    <LinearLayout android:layout_width="0dp" android:layout_height="40dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
-                        android:layout_marginEnd="4dp"
-                        android:background="@drawable/qs_toggle_off">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🔵" android:textSize="14sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="BT" android:textColor="@color/text_secondary" android:textSize="8sp"/>
-                    </LinearLayout>
-                    <!-- Nuit -->
-                    <LinearLayout android:layout_width="0dp" android:layout_height="40dp"
-                        android:layout_weight="1" android:orientation="vertical" android:gravity="center"
-                        android:background="@drawable/qs_toggle_on">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="🌙" android:textSize="14sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                            android:text="Nuit" android:textColor="@color/accent_violet" android:textSize="8sp"/>
-                    </LinearLayout>
-                </LinearLayout>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Grille d'apps rapide (8 apps) -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvQuickApps"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp" />
-
-        <!-- Scope dots -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-            <View android:layout_width="14dp" android:layout_height="5dp"
-                android:background="@drawable/ws_dot_active" android:layout_marginEnd="5dp"/>
-            <View android:layout_width="6dp" android:layout_height="5dp"
-                android:background="@drawable/ws_dot_inactive" android:layout_marginEnd="5dp"/>
-            <View android:layout_width="6dp" android:layout_height="5dp"
-                android:background="@drawable/ws_dot_inactive" android:layout_marginEnd="5dp"/>
-            <View android:layout_width="6dp" android:layout_height="5dp"
-                android:background="@drawable/ws_dot_inactive"/>
-        </LinearLayout>
-
-        <!-- Notifications -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="NOTIFICATIONS" android:textColor="@color/text_hint"
-            android:textSize="8sp" android:letterSpacing="0.08" android:layout_marginBottom="5dp"/>
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="5dp"
-            app:cardBackgroundColor="@color/card_bg"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:padding="9dp" android:gravity="center_vertical">
-                <FrameLayout android:layout_width="30dp" android:layout_height="30dp"
-                    android:background="@drawable/notif_icon_bg_blue"
-                    android:layout_marginEnd="8dp">
-                    <TextView android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:text="🌐" android:textSize="14sp"/>
-                </FrameLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Firefox" android:textColor="@color/text_hint" android:textSize="9sp"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Mise à jour disponible" android:textColor="@color/text_primary"
-                        android:textSize="11sp"/>
-                </LinearLayout>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="14m" android:textColor="@color/text_hint" android:textSize="9sp"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_bg"
-            app:cardCornerRadius="10dp"
-            app:cardElevation="0dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:padding="9dp" android:gravity="center_vertical">
-                <FrameLayout android:layout_width="30dp" android:layout_height="30dp"
-                    android:background="@drawable/notif_icon_bg_green"
-                    android:layout_marginEnd="8dp">
-                    <TextView android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:text="🖥️" android:textSize="14sp"/>
-                </FrameLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Terminal" android:textColor="@color/text_hint" android:textSize="9sp"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="bazzite-update terminé ✓" android:textColor="@color/text_primary"
-                        android:textSize="11sp"/>
-                </LinearLayout>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="2h" android:textColor="@color/text_hint" android:textSize="9sp"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-    </LinearLayout>
-
-    <!-- Indicateur swipe bas -->
-    <View android:layout_width="80dp" android:layout_height="3dp"
+    <!-- Indicateur de swipe bas -->
+    <View android:layout_width="60dp" android:layout_height="3dp"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="6dp"
         android:background="@drawable/edge_hint"/>
 
-    <!-- ═══════════════════════════════════════════
-         GNOME APP DRAWER OVERLAY (ouvert via 📂)
-    ═══════════════════════════════════════════ -->
+    <!-- ═══ APP DRAWER OVERLAY (depuis bouton 📂) ═══
+         S'affiche en overlay sur toute la zone (sauf side launcher et topbar).
+         visibility=gone par défaut. -->
     <FrameLayout
-        android:id="@+id/containerGnomeDrawer"
+        android:id="@+id/containerPortraitDrawer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="22dp"
@@ -337,37 +195,40 @@
         android:visibility="gone"
         android:elevation="30dp">
 
-        <!-- Scrim -->
+        <!-- Scrim cliquable -->
         <View
-            android:id="@+id/drawerScrim"
+            android:id="@+id/portraitDrawerScrim"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@color/drawer_overlay_bg"/>
 
         <!-- Panneau drawer -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardPortraitDrawer"
+        <FrameLayout
+            android:id="@+id/portraitDrawerPanel"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:cardBackgroundColor="@color/transparent"
-            app:cardCornerRadius="0dp"
-            app:cardElevation="0dp">
+            android:layout_height="match_parent">
 
-            <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                android:orientation="vertical" android:paddingTop="20dp" android:paddingHorizontal="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:paddingTop="16dp"
+                android:paddingHorizontal="10dp">
 
-                <!-- Recherche drawer -->
-                <FrameLayout android:layout_width="match_parent" android:layout_height="36dp"
-                    android:layout_marginBottom="14dp"
+                <!-- Recherche -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="34dp"
+                    android:layout_marginBottom="12dp"
                     android:background="@drawable/search_bar_bg">
-                    <TextView android:layout_width="wrap_content" android:layout_height="match_parent"
-                        android:layout_gravity="center_vertical" android:paddingStart="12dp"
-                        android:text="🔍" android:textSize="13sp"/>
+                    <TextView android:layout_width="30dp" android:layout_height="match_parent"
+                        android:layout_gravity="center_vertical"
+                        android:gravity="center" android:text="🔍" android:textSize="13sp"/>
                     <EditText
-                        android:id="@+id/etDrawerSearchPortrait"
+                        android:id="@+id/etPortraitDrawerSearch"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:layout_marginStart="36dp"
+                        android:layout_marginStart="32dp"
                         android:background="@null"
                         android:hint="Rechercher…"
                         android:textColorHint="@color/text_hint"
@@ -376,18 +237,21 @@
                         android:singleLine="true"/>
                 </FrameLayout>
 
-                <!-- Grille apps drawer -->
+                <!-- Grille apps -->
                 <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvDrawerApps"
+                    android:id="@+id/rvPortraitDrawerGrid"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:clipToPadding="false"
-                    android:padding="4dp"/>
+                    android:padding="2dp"/>
 
                 <!-- WS dots -->
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal" android:orientation="horizontal"
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:orientation="horizontal"
                     android:layout_marginVertical="8dp">
                     <View android:layout_width="14dp" android:layout_height="4dp"
                         android:background="@drawable/ws_dot_active" android:layout_marginEnd="5dp"/>
@@ -397,7 +261,7 @@
                         android:background="@drawable/ws_dot_inactive"/>
                 </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </FrameLayout>
     </FrameLayout>
 
 </FrameLayout>
