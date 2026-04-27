@@ -1,11 +1,13 @@
 package com.gnomebazzite.launcher.ui.portrait
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.*
 import android.view.animation.*
 import android.widget.*
-import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
@@ -13,6 +15,7 @@ import com.gnomebazzite.launcher.BaseFragment
 import com.gnomebazzite.launcher.R
 import com.gnomebazzite.launcher.data.AppInfo
 import com.gnomebazzite.launcher.databinding.FragmentUbuntuTouchBinding
+import com.gnomebazzite.launcher.manager.BuiltinAppManager
 import com.gnomebazzite.launcher.manager.LauncherViewModel
 import com.gnomebazzite.launcher.ui.common.AppGridAdapter
 import com.gnomebazzite.launcher.ui.store.AppStoreActivity
@@ -25,46 +28,54 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     FragmentUbuntuTouchBinding::inflate
 ) {
     private val vm: LauncherViewModel by activityViewModels()
-    private lateinit var appGridAdapter: AppGridAdapter
-    private lateinit var quickGridAdapter: AppGridAdapter
+    private lateinit var drawerAdapter: AppGridAdapter
 
-    // Horloge
+    private val clockHandler = Handler(Looper.getMainLooper())
     private val clockRunnable = object : Runnable {
-        override fun run() {
-            updateClock()
-            binding.tvPortraitTime.postDelayed(this, 30_000)
-        }
+        override fun run() { updateClock(); clockHandler.postDelayed(this, 30_000) }
     }
+
+    // Widgets draggables sur l'écran d'accueil
+    private val widgetViews = mutableListOf<View>()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupTopbar()
         setupSideLauncher()
-        setupQuickGrid()
-        setupGnomeDrawer()
-        setupNotifications()
+        setupDrawerOverlay()
+        setupWidgetZone()
+        loadWallpaper()
         observeViewModel()
         updateClock()
     }
 
-    // ─────────────────────────────────────────
-    // SIDE LAUNCHER (barre verticale gauche)
-    // ─────────────────────────────────────────
+    // ══════════════════════════════════════════════
+    // TOP BAR GNOME
+    // ══════════════════════════════════════════════
+    private fun setupTopbar() {
+        binding.btnPortraitWallpaper.setOnClickListener { pickWallpaper() }
+        binding.btnPortraitStore.setOnClickListener {
+            startActivity(Intent(requireContext(), AppStoreActivity::class.java))
+        }
+    }
 
+    private fun updateClock() {
+        binding.tvPortraitTime.text = SimpleDateFormat("HH:mm", Locale.FRENCH).format(Date())
+        binding.tvPortraitDate.text = SimpleDateFormat("EEE d MMM", Locale.FRENCH).format(Date())
+    }
+
+    // ══════════════════════════════════════════════
+    // SIDE LAUNCHER (Ubuntu Touch style)
+    // ══════════════════════════════════════════════
     private fun setupSideLauncher() {
-        // Accueil — déjà sur l'écran d'accueil donc marqué actif
+        // Accueil — toujours actif
         binding.btnSideHome.isSelected = true
 
-        // Dossier / App Drawer
+        // 📂 Dossier → ouvre l'App Drawer en overlay
         binding.btnSideFolder.setOnClickListener {
-            if (binding.containerGnomeDrawer.visibility == View.VISIBLE) {
-                closeGnomeDrawer()
-            } else {
-                openGnomeDrawer()
-            }
+            if (binding.containerPortraitDrawer.visibility == View.VISIBLE)
+                closeDrawer() else openDrawer()
         }
-
-        // Apps épinglées dans le launcher latéral
-        // (remplies dynamiquement depuis pinnedApps)
 
         // App Store
         binding.btnSideStore.setOnClickListener {
@@ -73,159 +84,254 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
 
         // Paramètres
         binding.btnSideSettings.setOnClickListener {
-            try {
-                startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
-            } catch (e: Exception) { }
+            try { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+            catch (e: Exception) { }
         }
     }
 
-    // ─────────────────────────────────────────
-    // GRILLE RAPIDE (apps visibles sur l'écran d'accueil)
-    // ─────────────────────────────────────────
-
-    private fun setupQuickGrid() {
-        quickGridAdapter = AppGridAdapter(
-            onAppClick = { app -> vm.launchApp(requireContext(), app) },
-            onAppLongClick = { }
-        )
-        binding.rvQuickApps.apply {
-            layoutManager = GridLayoutManager(context, 4)
-            adapter = quickGridAdapter
-        }
-    }
-
-    // ─────────────────────────────────────────
-    // DRAWER GNOME (ouvert depuis le bouton folder)
-    // ─────────────────────────────────────────
-
-    private fun setupGnomeDrawer() {
-        appGridAdapter = AppGridAdapter(
+    // ══════════════════════════════════════════════
+    // APP DRAWER OVERLAY (style GNOME, depuis 📂)
+    // S'ouvre en overlay sur l'écran — remplace la zone de droite
+    // ══════════════════════════════════════════════
+    private fun setupDrawerOverlay() {
+        drawerAdapter = AppGridAdapter(
             onAppClick = { app ->
                 vm.launchApp(requireContext(), app)
-                closeGnomeDrawer()
+                closeDrawer()
             },
-            onAppLongClick = { }
+            onAppLongClick = { app ->
+                vm.pinApp(app)
+                Toast.makeText(requireContext(), "${app.label} épinglé", Toast.LENGTH_SHORT).show()
+            },
+            onBuiltinAppClick = { app ->
+                closeDrawer()
+                Toast.makeText(requireContext(), "Ouvre ${app.name}…", Toast.LENGTH_SHORT).show()
+            }
         )
-        binding.rvDrawerApps.apply {
+
+        binding.rvPortraitDrawerGrid.apply {
             layoutManager = GridLayoutManager(context, 4)
-            adapter = appGridAdapter
+            adapter = drawerAdapter
         }
 
-        // Recherche dans le drawer
-        binding.etDrawerSearchPortrait.addTextChangedListener { text ->
-            vm.setSearchQuery(text?.toString() ?: "")
-            appGridAdapter.submitList(vm.filteredApps)
-        }
+        binding.etPortraitDrawerSearch.addTextChangedListener(
+            android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val q = s?.toString() ?: ""
+                val filtered = if (q.isBlank()) vm.installedApps.value
+                else vm.installedApps.value.filter { it.label.contains(q, ignoreCase = true) }
+                drawerAdapter.submitList(filtered)
+            }
+        })
 
-        // Fermer en cliquant le fond
-        binding.drawerScrim.setOnClickListener { closeGnomeDrawer() }
+        // Fermer en cliquant le scrim
+        binding.portraitDrawerScrim.setOnClickListener { closeDrawer() }
     }
 
-    private fun openGnomeDrawer() {
-        binding.containerGnomeDrawer.visibility = View.VISIBLE
+    private fun openDrawer() {
+        binding.containerPortraitDrawer.visibility = View.VISIBLE
+        binding.portraitDrawerScrim.alpha = 0f
+        binding.portraitDrawerScrim.animate().alpha(1f).setDuration(220).start()
 
-        // Scrim : fade in
-        binding.drawerScrim.alpha = 0f
-        binding.drawerScrim.animate().alpha(1f).setDuration(220).start()
-
-        // Panneau drawer : slide in depuis le bas + fade
-        binding.cardPortraitDrawer.translationY = 160f
-        binding.cardPortraitDrawer.alpha = 0f
-        binding.cardPortraitDrawer.animate()
+        // Panneau drawer : slide depuis le bas
+        binding.portraitDrawerPanel.translationY = 100f
+        binding.portraitDrawerPanel.alpha = 0f
+        binding.portraitDrawerPanel.animate()
             .translationY(0f).alpha(1f)
-            .setDuration(320)
-            .setInterpolator(DecelerateInterpolator(1.7f))
-            .start()
+            .setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start()
 
-        // Animer les icônes en cascade (stagger)
-        binding.rvDrawerApps.post {
-            val lm = binding.rvDrawerApps.layoutManager as? GridLayoutManager ?: return@post
+        // Stagger des icônes
+        binding.rvPortraitDrawerGrid.postDelayed({
+            val lm = binding.rvPortraitDrawerGrid.layoutManager as? GridLayoutManager ?: return@postDelayed
             for (i in 0 until lm.childCount) {
                 lm.getChildAt(i)?.let { child ->
-                    child.alpha = 0f; child.scaleX = 0.7f; child.scaleY = 0.7f
-                    child.animate()
-                        .alpha(1f).scaleX(1f).scaleY(1f)
-                        .setStartDelay((i * 20L).coerceAtMost(280L))
-                        .setDuration(240)
-                        .setInterpolator(OvershootInterpolator(1.3f))
-                        .start()
+                    child.alpha = 0f; child.scaleX = 0.65f; child.scaleY = 0.65f
+                    child.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                        .setStartDelay((i * 22L).coerceAtMost(300L))
+                        .setDuration(240).setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
             }
-        }
+        }, 80)
 
         binding.btnSideFolder.isSelected = true
+        drawerAdapter.submitList(vm.installedApps.value)
     }
 
-    private fun closeGnomeDrawer() {
-        binding.drawerScrim.animate().alpha(0f).setDuration(180).start()
-        binding.cardPortraitDrawer.animate()
-            .translationY(120f).alpha(0f)
-            .setDuration(220)
-            .setInterpolator(AccelerateInterpolator(1.4f))
+    private fun closeDrawer() {
+        binding.portraitDrawerScrim.animate().alpha(0f).setDuration(180).start()
+        binding.portraitDrawerPanel.animate()
+            .translationY(80f).alpha(0f).setDuration(220)
+            .setInterpolator(AccelerateInterpolator(1.3f))
             .withEndAction {
-                binding.containerGnomeDrawer.visibility = View.GONE
-                binding.etDrawerSearchPortrait.setText("")
-                vm.setSearchQuery("")
+                binding.containerPortraitDrawer.visibility = View.GONE
+                binding.portraitDrawerPanel.translationY = 0f
+                binding.etPortraitDrawerSearch.text?.clear()
             }.start()
-
         binding.btnSideFolder.isSelected = false
     }
 
-    // ─────────────────────────────────────────
-    // NOTIFICATIONS
-    // ─────────────────────────────────────────
+    // ══════════════════════════════════════════════
+    // ZONE WIDGETS (écran d'accueil vide avec widgets draggables)
+    // ══════════════════════════════════════════════
+    private fun setupWidgetZone() {
+        // Clic long sur la zone vide → ajouter un widget
+        binding.widgetCanvas.setOnLongClickListener {
+            showAddWidgetMenu()
+            true
+        }
 
-    private fun setupNotifications() {
-        // Données statiques pour la démo
-        // En production, écouter NotificationListenerService
+        // Charger les widgets sauvegardés
+        loadSavedWidgets()
     }
 
-    // ─────────────────────────────────────────
-    // OBSERVERS
-    // ─────────────────────────────────────────
+    private fun showAddWidgetMenu() {
+        val items = arrayOf(
+            "🕐  Horloge digitale",
+            "🌤  Météo (démo)",
+            "📅  Calendrier",
+            "🔋  Batterie",
+            "📝  Note rapide"
+        )
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Ajouter un widget")
+            .setItems(items) { _, which ->
+                addWidget(which)
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
 
+    private fun addWidget(type: Int) {
+        val widget = WidgetFactory.create(requireContext(), type) ?: return
+        val dp = resources.displayMetrics.density
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            leftMargin = (20 * dp).toInt() + (widgetViews.size * 10)
+            topMargin  = (20 * dp).toInt() + (widgetViews.size * 10)
+        }
+        widget.layoutParams = lp
+        widget.elevation = 4f
+
+        // Rendre le widget draggable
+        makeDraggable(widget)
+
+        binding.widgetCanvas.addView(widget)
+        widgetViews.add(widget)
+
+        // Animation apparition
+        widget.alpha = 0f; widget.scaleX = 0.7f; widget.scaleY = 0.7f
+        widget.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220)
+            .setInterpolator(OvershootInterpolator(1.2f)).start()
+    }
+
+    private fun makeDraggable(v: View) {
+        var dX = 0f; var dY = 0f
+        v.setOnTouchListener { view, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    dX = view.x - event.rawX
+                    dY = view.y - event.rawY
+                    view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(80).start()
+                    view.bringToFront()
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val parent = view.parent as? ViewGroup ?: return@setOnTouchListener false
+                    val newX = (event.rawX + dX).coerceIn(0f, (parent.width - view.width).toFloat())
+                    val newY = (event.rawY + dY).coerceIn(0f, (parent.height - view.height).toFloat())
+                    view.x = newX; view.y = newY
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun loadSavedWidgets() {
+        // Charger horloge par défaut
+        addWidget(0)
+    }
+
+    // ══════════════════════════════════════════════
+    // WALLPAPER
+    // ══════════════════════════════════════════════
+    private fun pickWallpaper() {
+        val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
+        startActivityForResult(intent, 1002)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1002 && resultCode == android.app.Activity.RESULT_OK) {
+            val uri = data?.data ?: return
+            requireContext().getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().putString("wallpaper_uri", uri.toString()).apply()
+            binding.ivPortraitWallpaper.setImageURI(uri)
+        }
+    }
+
+    private fun loadWallpaper() {
+        val prefs = requireContext().getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+        val uriStr = prefs.getString("wallpaper_uri", null) ?: return
+        try { binding.ivPortraitWallpaper.setImageURI(Uri.parse(uriStr)) }
+        catch (e: Exception) { }
+    }
+
+    // ══════════════════════════════════════════════
+    // OBSERVERS
+    // ══════════════════════════════════════════════
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             vm.installedApps.collectLatest { apps ->
-                appGridAdapter.submitList(apps)
-                // Afficher les 8 premières sur la grille rapide
-                quickGridAdapter.submitList(apps.take(8))
+                drawerAdapter.submitList(apps)
+                updateSidePinned(vm.pinnedApps.value)
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
-            vm.pinnedApps.collectLatest { pinned ->
-                updateSideLauncherPinned(pinned)
-            }
+            vm.pinnedApps.collectLatest { updateSidePinned(it) }
         }
     }
 
-    private fun updateSideLauncherPinned(apps: List<AppInfo>) {
+    private fun updateSidePinned(apps: List<AppInfo>) {
         binding.sidelauncherPinnedContainer.removeAllViews()
         val dp = resources.displayMetrics.density
-        apps.take(6).forEach { app ->
+        apps.take(5).forEach { app ->
             val icon = ImageView(requireContext()).apply {
                 setImageDrawable(app.icon)
-                val size = (38 * dp).toInt()
-                layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                    setMargins(4, 4, 4, 4)
+                val s = (36 * dp).toInt()
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    setMargins(4, 3, 4, 3)
                 }
                 background = requireContext().getDrawable(R.drawable.launcher_icon_bg)
                 clipToOutline = true
                 setOnClickListener { vm.launchApp(requireContext(), app) }
+                setOnLongClickListener {
+                    vm.unpinApp(app.packageName)
+                    Toast.makeText(requireContext(), "${app.label} retiré", Toast.LENGTH_SHORT).show()
+                    true
+                }
             }
             binding.sidelauncherPinnedContainer.addView(icon)
         }
     }
 
-    // ─────────────────────────────────────────
-    // HORLOGE
-    // ─────────────────────────────────────────
-
-    private fun updateClock() {
-        binding.tvPortraitTime.text = SimpleDateFormat("HH:mm", Locale.FRENCH).format(Date())
-        binding.tvPortraitDate.text = SimpleDateFormat("EEE d MMM", Locale.FRENCH).format(Date())
-    }
-
-    override fun onResume() { super.onResume(); binding.tvPortraitTime.post(clockRunnable) }
-    override fun onPause() { super.onPause(); binding.tvPortraitTime.removeCallbacks(clockRunnable) }
+    override fun onResume() { super.onResume(); clockHandler.post(clockRunnable) }
+    override fun onPause() { super.onPause(); clockHandler.removeCallbacks(clockRunnable) }
 }
+
+// Extension de TextWatcher pour éviter le boilerplate
+fun android.text.TextWatcher(afterChanged: (android.text.Editable?) -> Unit): android.text.TextWatcher =
+    object : android.text.TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        override fun afterTextChanged(s: android.text.Editable?) = afterChanged(s)
+    }
