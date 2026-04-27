@@ -39,4 +39,7 @@
     <color name="install_btn_bg">#FF7C6FF7</color>
     <color name="uninstall_btn_bg">#55FF5F57</color>
     <color name="progress_bar_color">#FF7C6FF7</color>
+    
+    <!-- Background colors -->
+    <color name="activities_overlay_bg">#E00D0E1A</color>
 </resources>
