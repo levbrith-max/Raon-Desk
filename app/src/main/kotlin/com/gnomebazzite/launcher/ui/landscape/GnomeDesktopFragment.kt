@@ -1,7 +1,11 @@
 package com.gnomebazzite.launcher.ui.landscape
 
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.*
 import android.view.animation.*
 import android.widget.*
@@ -9,83 +13,76 @@ import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.gnomebazzite.launcher.BaseFragment
 import com.gnomebazzite.launcher.R
+import com.gnomebazzite.launcher.data.AppInfo
+import com.gnomebazzite.launcher.data.BuiltinApp
 import com.gnomebazzite.launcher.databinding.FragmentGnomeDesktopBinding
+import com.gnomebazzite.launcher.manager.BuiltinAppManager
 import com.gnomebazzite.launcher.manager.LauncherViewModel
 import com.gnomebazzite.launcher.ui.common.AppGridAdapter
 import com.gnomebazzite.launcher.ui.common.DashAdapter
+import com.gnomebazzite.launcher.ui.files.FileBrowserWindow
 import com.gnomebazzite.launcher.ui.store.AppStoreActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+private const val WALLPAPER_PICK = 1001
+
 class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
     FragmentGnomeDesktopBinding::inflate
 ) {
     private val vm: LauncherViewModel by activityViewModels()
-    private lateinit var appGridAdapter: AppGridAdapter
-    private lateinit var dashAdapter: DashAdapter
     private lateinit var winMgr: DesktopWindowManager
-    private lateinit var overviewCtrl: OverviewController
+    private lateinit var dashAdapter: DashAdapter
+    private lateinit var activitiesAdapter: AppGridAdapter
+    private var builtinApps: List<BuiltinApp> = emptyList()
 
+    // State
+    private var activitiesOpen = false
+
+    private val clockHandler = Handler(Looper.getMainLooper())
     private val clockRunnable = object : Runnable {
-        override fun run() {
-            updateClock()
-            binding.tvTopbarClock.postDelayed(this, 30_000)
-        }
+        override fun run() { updateClock(); clockHandler.postDelayed(this, 30_000) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupWindowManager()
-        setupOverviewController()
-        setupTopBar()
+        setupTopbar()
         setupDash()
-        setupAppDrawer()
+        setupActivitiesOverlay()
+        loadWallpaper()
+        loadBuiltinApps()
         observeViewModel()
         updateClock()
     }
 
+    // ══════════════════════════════════════════════
+    // WINDOW MANAGER
+    // ══════════════════════════════════════════════
     private fun setupWindowManager() {
         winMgr = DesktopWindowManager(requireContext(), binding.desktopWindowLayer)
-        winMgr.openTerminal()
-        winMgr.openFiles()
-        binding.layoutDesktop.setOnClickListener { closeAllPopups() }
+        // Ne pas ouvrir de fenêtres automatiquement — l'utilisateur les ouvre
+        binding.layoutDesktop.setOnClickListener { closeActivities(); closeAllPopups() }
     }
 
-    private fun setupOverviewController() {
-        overviewCtrl = OverviewController(
-            context = requireContext(),
-            rootContainer = binding.rootLandscape as android.widget.FrameLayout,
-            desktopContainer = binding.desktopWindowLayer,
-            taskbarView = binding.taskbarContainer,
-            onLaunchApp = { app -> vm.launchApp(requireContext(), app) }
-        )
-    }
-
-    private fun setupTopBar() {
-        binding.btnActivities.setOnClickListener { toggleAppDrawer() }
-        binding.btnBazziteMenu.setOnClickListener { toggleBazzitePopup() }
+    // ══════════════════════════════════════════════
+    // TOPBAR
+    // ══════════════════════════════════════════════
+    private fun setupTopbar() {
+        binding.btnActivities.setOnClickListener { toggleActivities() }
+        binding.btnBazziteMenu.setOnClickListener {
+            closeActivities(); toggleBazzitePopup()
+        }
         binding.layoutSystray.setOnClickListener { toggleSystrayPopup() }
         binding.btnAppStore.setOnClickListener {
+            closeActivities(); closeAllPopups()
             startActivity(Intent(requireContext(), AppStoreActivity::class.java))
         }
-        binding.btnOverview.setOnClickListener { toggleOverview() }
-    }
-
-    private fun toggleOverview() {
-        if (overviewCtrl.isOverviewOpen()) {
-            overviewCtrl.close()
-            binding.btnOverview.setTextColor(resources.getColor(R.color.text_secondary, null))
-        } else {
-            if (vm.isDrawerOpen.value) closeDrawerWithAnimation()
-            closeAllPopups()
-            overviewCtrl.open(vm.installedApps.value)
-            binding.btnOverview.setTextColor(resources.getColor(R.color.accent_violet, null))
-        }
+        binding.btnWallpaper.setOnClickListener { pickWallpaper() }
     }
 
     private fun updateClock() {
@@ -95,57 +92,247 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
             SimpleDateFormat("HH:mm", Locale.FRENCH).format(now)
     }
 
+    // ══════════════════════════════════════════════
+    // GNOME ACTIVITIES OVERLAY
+    // Quand ouvert :
+    //   - le bureau se dézoom (scale 0.82)
+    //   - overlay sombre apparaît
+    //   - barre de recherche en haut au centre
+    //   - grille d'apps au centre (7 colonnes)
+    //   - vignettes workspace sur la droite
+    //   - taskbar reste visible et cliquable en dessous
+    // ══════════════════════════════════════════════
+    private fun setupActivitiesOverlay() {
+        activitiesAdapter = AppGridAdapter(
+            onAppClick = { app ->
+                closeActivities()
+                vm.launchApp(requireContext(), app)
+            },
+            onAppLongClick = { app ->
+                vm.pinApp(app)
+                showToast("${app.label} épinglé dans la taskbar")
+            },
+            onBuiltinAppClick = { app ->
+                closeActivities()
+                launchBuiltinApp(app)
+            }
+        )
+
+        binding.rvActivitiesGrid.apply {
+            layoutManager = GridLayoutManager(context, 7)
+            adapter = activitiesAdapter
+        }
+
+        binding.etActivitiesSearch.addTextChangedListener { text ->
+            filterActivitiesApps(text?.toString() ?: "")
+        }
+
+        // Fermer en cliquant sur le fond de l'overlay
+        binding.activitiesOverlayBg.setOnClickListener { closeActivities() }
+
+        // Workspace dots (décoratifs pour l'instant)
+        setupWorkspaceDots()
+    }
+
+    private fun setupWorkspaceDots() {
+        // Géré dans le layout XML
+    }
+
+    private fun toggleActivities() {
+        if (activitiesOpen) closeActivities() else openActivities()
+    }
+
+    private fun openActivities() {
+        if (activitiesOpen) return
+        activitiesOpen = true
+        closeAllPopups()
+
+        // 1. Dézoom du bureau
+        binding.desktopWindowLayer.animate()
+            .scaleX(0.82f).scaleY(0.82f).translationY(-30f)
+            .setDuration(260).setInterpolator(DecelerateInterpolator(1.5f)).start()
+
+        // 2. Afficher l'overlay
+        binding.activitiesOverlayContainer.visibility = View.VISIBLE
+        binding.activitiesOverlayBg.alpha = 0f
+        binding.activitiesOverlayBg.animate().alpha(1f).setDuration(240).start()
+
+        // 3. Slide-in du panneau central depuis le bas
+        binding.activitiesCenterPanel.translationY = 60f
+        binding.activitiesCenterPanel.alpha = 0f
+        binding.activitiesCenterPanel.animate()
+            .translationY(0f).alpha(1f)
+            .setDuration(280).setInterpolator(DecelerateInterpolator(1.6f)).start()
+
+        // 4. Slide-in du panneau workspaces depuis la droite
+        binding.activitiesWorkspacePanel.translationX = 50f
+        binding.activitiesWorkspacePanel.alpha = 0f
+        binding.activitiesWorkspacePanel.animate()
+            .translationX(0f).alpha(1f)
+            .setDuration(280).setInterpolator(DecelerateInterpolator(1.4f)).start()
+
+        // 5. Stagger des icônes de la grille
+        binding.rvActivitiesGrid.postDelayed({
+            val lm = binding.rvActivitiesGrid.layoutManager as? GridLayoutManager ?: return@postDelayed
+            for (i in 0 until lm.childCount) {
+                lm.getChildAt(i)?.let { child ->
+                    child.alpha = 0f; child.scaleX = 0.6f; child.scaleY = 0.6f
+                    child.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                        .setStartDelay((i * 16L).coerceAtMost(280L))
+                        .setDuration(220).setInterpolator(OvershootInterpolator(1.2f)).start()
+                }
+            }
+        }, 60)
+
+        binding.btnActivities.isSelected = true
+        binding.etActivitiesSearch.text?.clear()
+        refreshActivitiesGrid()
+    }
+
+    fun closeActivities() {
+        if (!activitiesOpen) return
+        activitiesOpen = false
+
+        // Re-zoom bureau
+        binding.desktopWindowLayer.animate()
+            .scaleX(1f).scaleY(1f).translationY(0f)
+            .setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+
+        binding.activitiesOverlayBg.animate().alpha(0f).setDuration(180).start()
+        binding.activitiesCenterPanel.animate().translationY(40f).alpha(0f).setDuration(200).start()
+        binding.activitiesWorkspacePanel.animate().translationX(30f).alpha(0f)
+            .setDuration(180)
+            .withEndAction {
+                binding.activitiesOverlayContainer.visibility = View.GONE
+                binding.activitiesCenterPanel.translationY = 0f
+                binding.activitiesWorkspacePanel.translationX = 0f
+            }.start()
+
+        binding.btnActivities.isSelected = false
+        binding.etActivitiesSearch.text?.clear()
+    }
+
+    private fun refreshActivitiesGrid() {
+        // Combiner apps Android installées + apps intégrées installées
+        val androidApps = vm.installedApps.value
+        activitiesAdapter.submitCombined(androidApps, builtinApps.filter { it.isInstalled })
+    }
+
+    private fun filterActivitiesApps(q: String) {
+        val androidApps = vm.installedApps.value
+        val filtered = if (q.isBlank()) androidApps
+        else androidApps.filter { it.label.contains(q, ignoreCase = true) }
+        val filteredBuiltin = if (q.isBlank()) builtinApps.filter { it.isInstalled }
+        else builtinApps.filter { it.isInstalled && it.name.contains(q, ignoreCase = true) }
+        activitiesAdapter.submitCombined(filtered, filteredBuiltin)
+    }
+
+    // ══════════════════════════════════════════════
+    // DASH (taskbar du bas)
+    // ══════════════════════════════════════════════
+    private fun setupDash() {
+        dashAdapter = DashAdapter(
+            onAppClick = { app -> vm.launchApp(requireContext(), app) },
+            onAppLongClick = { app ->
+                vm.unpinApp(app.packageName)
+                showToast("${app.label} retiré de la taskbar")
+            }
+        )
+        binding.rvDash.apply {
+            layoutManager = GridLayoutManager(context, 1, GridLayoutManager.HORIZONTAL, false)
+            adapter = dashAdapter
+        }
+        binding.btnOverview.setOnClickListener { toggleActivities() }
+        binding.btnFiles.setOnClickListener { openFileBrowser() }
+        binding.btnAppStore.setOnClickListener {
+            startActivity(Intent(requireContext(), AppStoreActivity::class.java))
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    // EXPLORATEUR DE FICHIERS (fenêtre flottante)
+    // ══════════════════════════════════════════════
+    private fun openFileBrowser() {
+        closeActivities(); closeAllPopups()
+        val fbWindow = FileBrowserWindow(requireContext())
+        winMgr.openCustomWindow("Fichiers", fbWindow, x = 80f, y = 40f, w = 520, h = 340)
+    }
+
+    // ══════════════════════════════════════════════
+    // BUILT-IN APPS
+    // ══════════════════════════════════════════════
+    private fun loadBuiltinApps() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            builtinApps = BuiltinAppManager.loadCatalog(requireContext())
+        }
+    }
+
+    private fun launchBuiltinApp(app: BuiltinApp) {
+        if (!app.isInstalled) {
+            showToast("${app.name} n'est pas installée — ouvrez le Bazaar Store")
+            startActivity(Intent(requireContext(), AppStoreActivity::class.java))
+            return
+        }
+        val path = BuiltinAppManager.getEntryPointPath(requireContext(), app)
+        val webView = android.webkit.WebView(requireContext()).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            @Suppress("DEPRECATION")
+            settings.allowFileAccessFromFileURLs = true
+            @Suppress("DEPRECATION")
+            settings.allowUniversalAccessFromFileURLs = true
+            loadUrl("file://$path")
+        }
+        winMgr.openCustomWindow(
+            title = "${app.iconEmoji}  ${app.name}",
+            content = webView,
+            x = 60f + (winMgr.getCount() * 20f),
+            y = 40f + (winMgr.getCount() * 16f),
+            w = 480, h = 320
+        )
+    }
+
+    // ══════════════════════════════════════════════
+    // POPUPS TOPBAR
+    // ══════════════════════════════════════════════
     private fun toggleBazzitePopup() {
         val popup = binding.popupBazziteMenu
         if (popup.visibility == View.VISIBLE) animatePopupOut(popup)
-        else { closeAllPopups(); animatePopupIn(popup); setupBazziteMenuItems() }
+        else { animatePopupIn(popup); setupBazziteMenuItems() }
     }
 
     private fun setupBazziteMenuItems() {
-        // FIX: les <include> avec id génèrent un sous-binding — on accède aux vues via le binding enfant
         data class Row(val root: View, val icon: TextView?, val label: TextView?, val act: () -> Unit)
         val rows = listOf(
-            Row(binding.popupRowGaming.root,
-                binding.popupRowGaming.ivPopupRowIcon,
-                binding.popupRowGaming.tvPopupRowLabel) {},
-            Row(binding.popupRowSteam.root,
-                binding.popupRowSteam.ivPopupRowIcon,
-                binding.popupRowSteam.tvPopupRowLabel) {},
-            Row(binding.popupRowSettings.root,
-                binding.popupRowSettings.ivPopupRowIcon,
-                binding.popupRowSettings.tvPopupRowLabel) {},
-            Row(binding.popupRowStore.root,
-                binding.popupRowStore.ivPopupRowIcon,
-                binding.popupRowStore.tvPopupRowLabel) {
+            Row(binding.popupRowGaming.root,  binding.popupRowGaming.ivPopupRowIcon,  binding.popupRowGaming.tvPopupRowLabel)  {},
+            Row(binding.popupRowSteam.root,   binding.popupRowSteam.ivPopupRowIcon,   binding.popupRowSteam.tvPopupRowLabel)   {},
+            Row(binding.popupRowSettings.root,binding.popupRowSettings.ivPopupRowIcon,binding.popupRowSettings.tvPopupRowLabel) {},
+            Row(binding.popupRowStore.root,   binding.popupRowStore.ivPopupRowIcon,   binding.popupRowStore.tvPopupRowLabel)   {
                 startActivity(Intent(requireContext(), AppStoreActivity::class.java))
             }
         )
-        val icons  = listOf("🎮", "💨", "⚙️", "📦")
-        val labels = listOf("Retour Gaming Mode", "Lancer Steam", "Paramètres système", "Bazaar App Store")
-        rows.forEachIndexed { i, row ->
-            row.icon?.text  = icons[i]
-            row.label?.text = labels[i]
-            row.root.setOnClickListener { closeAllPopups(); row.act() }
+        listOf("🎮","💨","⚙️","📦").zip(
+            listOf("Retour Gaming Mode","Lancer Steam","Paramètres système","Bazaar App Store")
+        ).forEachIndexed { i, (icon, label) ->
+            rows[i].icon?.text = icon; rows[i].label?.text = label
+            rows[i].root.setOnClickListener { closeAllPopups(); rows[i].act() }
         }
     }
 
     private fun toggleSystrayPopup() {
         val popup = binding.popupSystray
-        if (popup.visibility == View.VISIBLE) animatePopupOut(popup)
-        else { closeAllPopups(); animatePopupIn(popup) }
+        if (popup.visibility == View.VISIBLE) animatePopupOut(popup) else animatePopupIn(popup)
     }
 
     private fun animatePopupIn(v: View) {
-        v.visibility = View.VISIBLE
-        v.alpha = 0f; v.scaleX = 0.92f; v.scaleY = 0.92f; v.translationY = -6f
+        v.visibility = View.VISIBLE; v.alpha = 0f; v.scaleX = 0.92f; v.scaleY = 0.92f; v.translationY = -8f
         v.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-            .setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+            .setDuration(200).setInterpolator(DecelerateInterpolator()).start()
     }
 
     private fun animatePopupOut(v: View) {
-        v.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).translationY(-6f)
-            .setDuration(140).setInterpolator(AccelerateInterpolator())
-            .withEndAction { v.visibility = View.GONE }.start()
+        v.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).translationY(-8f)
+            .setDuration(150).withEndAction { v.visibility = View.GONE }.start()
     }
 
     private fun closeAllPopups() {
@@ -154,102 +341,64 @@ class GnomeDesktopFragment : BaseFragment<FragmentGnomeDesktopBinding>(
         }
     }
 
-    private fun setupDash() {
-        dashAdapter = DashAdapter { app -> vm.launchApp(requireContext(), app) }
-        binding.rvDash.apply {
-            layoutManager = GridLayoutManager(context, 1, GridLayoutManager.HORIZONTAL, false)
-            adapter = dashAdapter
+    // ══════════════════════════════════════════════
+    // WALLPAPER
+    // ══════════════════════════════════════════════
+    private fun pickWallpaper() {
+        val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
+        startActivityForResult(intent, WALLPAPER_PICK)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == WALLPAPER_PICK && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data ?: return
+            saveWallpaper(uri)
+            binding.ivWallpaper.setImageURI(uri)
         }
     }
 
-    private fun setupAppDrawer() {
-        appGridAdapter = AppGridAdapter(
-            onAppClick = { app -> vm.launchApp(requireContext(), app); closeDrawerWithAnimation() },
-            onAppLongClick = {}
-        )
-        binding.rvAppGrid.apply {
-            layoutManager = GridLayoutManager(context, 7)
-            adapter = appGridAdapter
-            itemAnimator = DrawerItemAnimator()
-        }
-        binding.etDrawerSearch.addTextChangedListener { text ->
-            vm.setSearchQuery(text?.toString() ?: "")
-            appGridAdapter.submitList(vm.filteredApps)
-        }
-        binding.overlayDrawerBackground.setOnClickListener { closeDrawerWithAnimation() }
+    private fun saveWallpaper(uri: Uri) {
+        val prefs = requireContext().getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.edit().putString("wallpaper_uri", uri.toString()).apply()
     }
 
-    private fun toggleAppDrawer() {
-        if (vm.isDrawerOpen.value) closeDrawerWithAnimation() else openDrawerWithAnimation()
+    private fun loadWallpaper() {
+        val prefs = requireContext().getSharedPreferences("launcher_prefs", android.content.Context.MODE_PRIVATE)
+        val uriStr = prefs.getString("wallpaper_uri", null) ?: return
+        try {
+            binding.ivWallpaper.setImageURI(Uri.parse(uriStr))
+        } catch (e: Exception) { /* garder le fond par défaut */ }
     }
 
-    private fun openDrawerWithAnimation() {
-        vm.setDrawerOpen(true)
-        binding.containerDrawer.visibility = View.VISIBLE
-        binding.overlayDrawerBackground.alpha = 0f
-        binding.overlayDrawerBackground.animate().alpha(1f).setDuration(220)
-            .setInterpolator(DecelerateInterpolator()).start()
-        binding.cardDrawerContent.translationY = 100f; binding.cardDrawerContent.alpha = 0f
-        binding.cardDrawerContent.animate().translationY(0f).alpha(1f).setDuration(300)
-            .setInterpolator(DecelerateInterpolator(1.8f)).start()
-        binding.rvAppGrid.postDelayed({
-            val lm = binding.rvAppGrid.layoutManager as? GridLayoutManager ?: return@postDelayed
-            for (i in 0 until lm.childCount) {
-                lm.getChildAt(i)?.let { child ->
-                    child.alpha = 0f; child.scaleX = 0.65f; child.scaleY = 0.65f
-                    child.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                        .setStartDelay((i * 20L).coerceAtMost(300L))
-                        .setDuration(260).setInterpolator(OvershootInterpolator(1.3f)).start()
-                }
-            }
-        }, 80)
-        binding.btnActivities.isSelected = true
-    }
-
-    private fun closeDrawerWithAnimation() {
-        binding.overlayDrawerBackground.animate().alpha(0f).setDuration(180)
-            .setInterpolator(AccelerateInterpolator()).start()
-        binding.cardDrawerContent.animate().translationY(80f).alpha(0f).setDuration(210)
-            .setInterpolator(AccelerateInterpolator(1.4f))
-            .withEndAction {
-                binding.containerDrawer.visibility = View.GONE
-                binding.cardDrawerContent.translationY = 0f
-                vm.setDrawerOpen(false)
-                binding.etDrawerSearch.setText("")
-                vm.setSearchQuery("")
-            }.start()
-        binding.btnActivities.isSelected = false
-    }
-
+    // ══════════════════════════════════════════════
+    // OBSERVERS
+    // ══════════════════════════════════════════════
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
-            vm.installedApps.collectLatest { apps -> appGridAdapter.submitList(apps) }
+            vm.installedApps.collectLatest { apps ->
+                activitiesAdapter.submitCombined(apps, builtinApps.filter { it.isInstalled })
+            }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             vm.pinnedApps.collectLatest { pinned -> dashAdapter.submitList(pinned) }
         }
-        viewLifecycleOwner.lifecycleScope.launch {
-            vm.isDrawerOpen.collectLatest { open ->
-                if (!open && binding.containerDrawer.visibility == View.VISIBLE) closeDrawerWithAnimation()
-            }
-        }
     }
 
-    override fun onResume() { super.onResume(); binding.tvTopbarClock.post(clockRunnable) }
+    private fun showToast(msg: String) {
+        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        clockHandler.post(clockRunnable)
+        loadBuiltinApps()
+    }
+
     override fun onPause() {
         super.onPause()
-        binding.tvTopbarClock.removeCallbacks(clockRunnable)
-        if (overviewCtrl.isOverviewOpen()) overviewCtrl.close()
-    }
-}
-
-class DrawerItemAnimator : androidx.recyclerview.widget.DefaultItemAnimator() {
-    override fun animateAdd(holder: RecyclerView.ViewHolder?): Boolean {
-        holder?.itemView?.let { v ->
-            v.alpha = 0f; v.scaleX = 0.6f; v.scaleY = 0.6f
-            v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220)
-                .setInterpolator(OvershootInterpolator(1.4f)).start()
-        }
-        return true
+        clockHandler.removeCallbacks(clockRunnable)
+        if (activitiesOpen) closeActivities()
     }
 }
