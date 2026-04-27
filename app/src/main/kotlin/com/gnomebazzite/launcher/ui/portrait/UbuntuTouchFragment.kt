@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.*
 import android.view.animation.*
 import android.widget.*
@@ -15,10 +17,10 @@ import com.gnomebazzite.launcher.BaseFragment
 import com.gnomebazzite.launcher.R
 import com.gnomebazzite.launcher.data.AppInfo
 import com.gnomebazzite.launcher.databinding.FragmentUbuntuTouchBinding
-import com.gnomebazzite.launcher.manager.BuiltinAppManager
 import com.gnomebazzite.launcher.manager.LauncherViewModel
 import com.gnomebazzite.launcher.ui.common.AppGridAdapter
 import com.gnomebazzite.launcher.ui.store.AppStoreActivity
+import com.gnomebazzite.launcher.ui.widget.WidgetFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -35,7 +37,6 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
         override fun run() { updateClock(); clockHandler.postDelayed(this, 30_000) }
     }
 
-    // Widgets draggables sur l'écran d'accueil
     private val widgetViews = mutableListOf<View>()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -50,7 +51,7 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     }
 
     // ══════════════════════════════════════════════
-    // TOP BAR GNOME
+    // TOP BAR
     // ══════════════════════════════════════════════
     private fun setupTopbar() {
         binding.btnPortraitWallpaper.setOnClickListener { pickWallpaper() }
@@ -65,24 +66,20 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     }
 
     // ══════════════════════════════════════════════
-    // SIDE LAUNCHER (Ubuntu Touch style)
+    // SIDE LAUNCHER
     // ══════════════════════════════════════════════
     private fun setupSideLauncher() {
-        // Accueil — toujours actif
         binding.btnSideHome.isSelected = true
 
-        // 📂 Dossier → ouvre l'App Drawer en overlay
         binding.btnSideFolder.setOnClickListener {
             if (binding.containerPortraitDrawer.visibility == View.VISIBLE)
                 closeDrawer() else openDrawer()
         }
 
-        // App Store
         binding.btnSideStore.setOnClickListener {
             startActivity(Intent(requireContext(), AppStoreActivity::class.java))
         }
 
-        // Paramètres
         binding.btnSideSettings.setOnClickListener {
             try { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
             catch (e: Exception) { }
@@ -90,8 +87,7 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     }
 
     // ══════════════════════════════════════════════
-    // APP DRAWER OVERLAY (style GNOME, depuis 📂)
-    // S'ouvre en overlay sur l'écran — remplace la zone de droite
+    // APP DRAWER OVERLAY
     // ══════════════════════════════════════════════
     private fun setupDrawerOverlay() {
         drawerAdapter = AppGridAdapter(
@@ -114,11 +110,11 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
             adapter = drawerAdapter
         }
 
-        binding.etPortraitDrawerSearch.addTextChangedListener(
-            android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) {
+        // FIX BUG 2 : utiliser l'interface TextWatcher directement sans extension function
+        binding.etPortraitDrawerSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
                 val q = s?.toString() ?: ""
                 val filtered = if (q.isBlank()) vm.installedApps.value
                 else vm.installedApps.value.filter { it.label.contains(q, ignoreCase = true) }
@@ -126,7 +122,6 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
             }
         })
 
-        // Fermer en cliquant le scrim
         binding.portraitDrawerScrim.setOnClickListener { closeDrawer() }
     }
 
@@ -135,14 +130,12 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
         binding.portraitDrawerScrim.alpha = 0f
         binding.portraitDrawerScrim.animate().alpha(1f).setDuration(220).start()
 
-        // Panneau drawer : slide depuis le bas
         binding.portraitDrawerPanel.translationY = 100f
         binding.portraitDrawerPanel.alpha = 0f
         binding.portraitDrawerPanel.animate()
             .translationY(0f).alpha(1f)
             .setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start()
 
-        // Stagger des icônes
         binding.rvPortraitDrawerGrid.postDelayed({
             val lm = binding.rvPortraitDrawerGrid.layoutManager as? GridLayoutManager ?: return@postDelayed
             for (i in 0 until lm.childCount) {
@@ -167,23 +160,22 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
             .withEndAction {
                 binding.containerPortraitDrawer.visibility = View.GONE
                 binding.portraitDrawerPanel.translationY = 0f
-                binding.etPortraitDrawerSearch.text?.clear()
+                // FIX BUG 3 : utiliser setText("") au lieu de .text?.clear()
+                binding.etPortraitDrawerSearch.setText("")
             }.start()
         binding.btnSideFolder.isSelected = false
     }
 
     // ══════════════════════════════════════════════
-    // ZONE WIDGETS (écran d'accueil vide avec widgets draggables)
+    // WIDGETS
     // ══════════════════════════════════════════════
     private fun setupWidgetZone() {
-        // Clic long sur la zone vide → ajouter un widget
         binding.widgetCanvas.setOnLongClickListener {
             showAddWidgetMenu()
             true
         }
-
-        // Charger les widgets sauvegardés
-        loadSavedWidgets()
+        // Horloge par défaut au démarrage
+        addWidget(0)
     }
 
     private fun showAddWidgetMenu() {
@@ -196,9 +188,7 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
         )
         android.app.AlertDialog.Builder(requireContext())
             .setTitle("Ajouter un widget")
-            .setItems(items) { _, which ->
-                addWidget(which)
-            }
+            .setItems(items) { _, which -> addWidget(which) }
             .setNegativeButton("Annuler", null)
             .show()
     }
@@ -206,23 +196,19 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     private fun addWidget(type: Int) {
         val widget = WidgetFactory.create(requireContext(), type) ?: return
         val dp = resources.displayMetrics.density
-        val lp = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
+        val lp = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            leftMargin = (20 * dp).toInt() + (widgetViews.size * 10)
-            topMargin  = (20 * dp).toInt() + (widgetViews.size * 10)
+            leftMargin = (20 * dp).toInt() + (widgetViews.size * 12)
+            topMargin  = (20 * dp).toInt() + (widgetViews.size * 12)
         }
         widget.layoutParams = lp
         widget.elevation = 4f
-
-        // Rendre le widget draggable
         makeDraggable(widget)
-
         binding.widgetCanvas.addView(widget)
         widgetViews.add(widget)
 
-        // Animation apparition
         widget.alpha = 0f; widget.scaleX = 0.7f; widget.scaleY = 0.7f
         widget.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220)
             .setInterpolator(OvershootInterpolator(1.2f)).start()
@@ -241,9 +227,8 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val parent = view.parent as? ViewGroup ?: return@setOnTouchListener false
-                    val newX = (event.rawX + dX).coerceIn(0f, (parent.width - view.width).toFloat())
-                    val newY = (event.rawY + dY).coerceIn(0f, (parent.height - view.height).toFloat())
-                    view.x = newX; view.y = newY
+                    view.x = (event.rawX + dX).coerceIn(0f, (parent.width - view.width).toFloat())
+                    view.y = (event.rawY + dY).coerceIn(0f, (parent.height - view.height).toFloat())
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -255,16 +240,12 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
         }
     }
 
-    private fun loadSavedWidgets() {
-        // Charger horloge par défaut
-        addWidget(0)
-    }
-
     // ══════════════════════════════════════════════
     // WALLPAPER
     // ══════════════════════════════════════════════
     private fun pickWallpaper() {
         val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
+        @Suppress("DEPRECATION")
         startActivityForResult(intent, 1002)
     }
 
@@ -293,7 +274,6 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
         viewLifecycleOwner.lifecycleScope.launch {
             vm.installedApps.collectLatest { apps ->
                 drawerAdapter.submitList(apps)
-                updateSidePinned(vm.pinnedApps.value)
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
@@ -327,11 +307,3 @@ class UbuntuTouchFragment : BaseFragment<FragmentUbuntuTouchBinding>(
     override fun onResume() { super.onResume(); clockHandler.post(clockRunnable) }
     override fun onPause() { super.onPause(); clockHandler.removeCallbacks(clockRunnable) }
 }
-
-// Extension de TextWatcher pour éviter le boilerplate
-fun android.text.TextWatcher(afterChanged: (android.text.Editable?) -> Unit): android.text.TextWatcher =
-    object : android.text.TextWatcher {
-        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        override fun afterTextChanged(s: android.text.Editable?) = afterChanged(s)
-    }
