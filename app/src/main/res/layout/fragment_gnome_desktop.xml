@@ -1,4 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    GNOME Bazzite Desktop — basé exactement sur la vidéo de présentation
+
+    Structure réelle observée dans la vidéo :
+    ┌────────────────────────────────────────────────────────┐
+    │ [🔷] [...]          17:34           [⇧][⚙][🔊][📶][↓] │  ← topbar (très fin)
+    ├────────────────────────────────────────────────────────┤
+    │                                                        │
+    │   [icône]   [icône]              ← icônes bureau       │
+    │   [icône]                                              │
+    │                                                        │
+    │           (fond d'écran)                               │
+    │                                                        │
+    │                                                        │
+    │                                                        │
+    └────────────────────────────────────────────────────────┘
+    PAS DE DOCK en mode bureau normal
+
+    En mode App Grid (overlay) :
+    ┌────────────────────────────────────────────────────────┐
+    │ [🔷]              [🔍 Rechercher…]         [systray]   │  ← topbar modifiée
+    ├────────────────────────────────────────────────────────┤
+    │   ┌──────────┐  ┌──────────┐                          │
+    │   │ Bureau 1 │  │ Bureau 2 │  ← vignettes workspaces  │
+    │   └──────────┘  └──────────┘                          │
+    │                                                        │
+    │  [App] [App] [App] [App] [App] [App] [App] [App]  [>] │
+    │  [App] [App] [App] [App] [App] [App] [App] [App]      │
+    │  [App] [App] [App] [App] [App] [App] [App] [App]      │
+    │                      ●  ○                              │
+    ├────────────────────────────────────────────────────────┤
+    │    [🌐][🎮][📦][...apps épinglées...]          [⠿]    │  ← dock (seulement ici)
+    └────────────────────────────────────────────────────────┘
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootLandscape"
@@ -14,228 +48,292 @@
         android:scaleType="centerCrop"
         android:background="@drawable/wallpaper_gnome_gradient"/>
 
-    <!-- ═══ COUCHE BUREAU (fenêtres flottantes) ═══ -->
+    <!-- ═══ COUCHE BUREAU : fenêtres flottantes ═══ -->
     <FrameLayout
         android:id="@+id/desktopWindowLayer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="28dp"
-        android:layout_marginBottom="52dp"
+        android:layout_marginTop="26dp"
         android:clipChildren="false"/>
 
-    <!-- Zone cliquable du bureau (ne pas mettre de fond) -->
+    <!-- Zone cliquable bureau -->
     <FrameLayout
         android:id="@+id/layoutDesktop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="28dp"
-        android:layout_marginBottom="52dp"/>
+        android:layout_marginTop="26dp"/>
 
-    <!-- ═══ GNOME ACTIVITIES OVERLAY ═══
-         Occupe TOUTE la zone sous la topbar, au-dessus de la taskbar.
-         Composé de :
-           - bg semi-transparent (cliquable pour fermer)
-           - panneau central (search + grille apps)
-           - panneau workspaces (droite)
-    ═══ -->
+    <!-- ══════════════════════════════════════════════════════
+         APP GRID OVERLAY — visible uniquement quand ouvert
+         Reproduit exactement ce qu'on voit dans la vidéo :
+           - fond flouté/assombri
+           - vignettes workspaces en haut
+           - grille apps au centre
+           - dock en bas
+    ══════════════════════════════════════════════════════ -->
     <FrameLayout
-        android:id="@+id/activitiesOverlayContainer"
+        android:id="@+id/appGridOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="28dp"
-        android:layout_marginBottom="52dp"
         android:visibility="gone">
 
-        <!-- Fond sombre cliquable -->
+        <!-- Fond assombri avec effet de flou simulé par une couleur -->
         <View
-            android:id="@+id/activitiesOverlayBg"
+            android:id="@+id/appGridBg"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@color/activities_overlay_bg"/>
 
-        <!-- Layout horizontal : panneau central + workspaces -->
+        <!-- CONTENU PRINCIPAL de l'overlay -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:padding="12dp">
+            android:orientation="vertical"
+            android:layout_marginTop="26dp"
+            android:layout_marginBottom="52dp">
 
-            <!-- Panneau central : search + grille d'apps -->
+            <!-- Vignettes des workspaces (en haut, comme dans la vidéo) -->
             <LinearLayout
-                android:id="@+id/activitiesCenterPanel"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <!-- Barre de recherche (style GNOME) -->
-                <FrameLayout
-                    android:layout_width="260dp"
-                    android:layout_height="38dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginBottom="14dp"
-                    android:background="@drawable/search_bar_bg">
-
-                    <TextView
-                        android:layout_width="34dp"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="🔍"
-                        android:textSize="14sp"/>
-
-                    <EditText
-                        android:id="@+id/etActivitiesSearch"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_marginStart="36dp"
-                        android:background="@null"
-                        android:hint="Rechercher des applications…"
-                        android:textColorHint="@color/text_hint"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:singleLine="true"
-                        android:imeOptions="actionSearch"/>
-                </FrameLayout>
-
-                <!-- Grille des apps -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvActivitiesGrid"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:clipToPadding="false"
-                    android:padding="2dp"/>
-
-                <!-- Dots pages en bas de la grille -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    android:gravity="center">
-                    <View android:layout_width="18dp" android:layout_height="4dp"
-                        android:background="@drawable/ws_dot_active" android:layout_marginEnd="5dp"/>
-                    <View android:layout_width="8dp" android:layout_height="4dp"
-                        android:background="@drawable/ws_dot_inactive" android:layout_marginEnd="5dp"/>
-                    <View android:layout_width="8dp" android:layout_height="4dp"
-                        android:background="@drawable/ws_dot_inactive"/>
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Panneau workspaces (droite — comme GNOME) -->
-            <LinearLayout
-                android:id="@+id/activitiesWorkspacePanel"
-                android:layout_width="140dp"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:layout_marginStart="12dp"
-                android:gravity="top|center_horizontal">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="ESPACES"
-                    android:textColor="@color/text_hint"
-                    android:textSize="9sp"
-                    android:letterSpacing="0.1"
-                    android:layout_marginBottom="8dp"/>
+                android:id="@+id/workspaceThumbnails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:paddingHorizontal="20dp">
 
                 <!-- Workspace 1 (actif) -->
                 <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="80dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_width="120dp"
+                    android:layout_height="72dp"
+                    android:layout_marginEnd="10dp"
                     android:background="@drawable/workspace_thumb_active">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:gravity="center"
+                        android:gravity="bottom|center_horizontal"
+                        android:paddingBottom="4dp"
                         android:text="Bureau 1"
                         android:textColor="@color/accent_violet"
-                        android:textSize="10sp"/>
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="2dp"
-                        android:layout_gravity="bottom"
-                        android:background="@color/accent_violet"/>
+                        android:textSize="9sp"/>
                 </FrameLayout>
 
                 <!-- Workspace 2 -->
                 <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="80dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_width="120dp"
+                    android:layout_height="72dp"
                     android:background="@drawable/workspace_thumb_inactive">
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:gravity="center"
+                        android:gravity="bottom|center_horizontal"
+                        android:paddingBottom="4dp"
                         android:text="Bureau 2"
                         android:textColor="@color/text_secondary"
-                        android:textSize="10sp"/>
-                </FrameLayout>
-
-                <!-- Ajouter workspace -->
-                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:background="@drawable/workspace_add_btn">
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="＋"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="16sp"/>
+                        android:textSize="9sp"/>
                 </FrameLayout>
             </LinearLayout>
-        </LinearLayout>
-    </FrameLayout>
 
-    <!-- ═══ TOP BAR ═══ -->
+            <!-- Grille des apps (occupe tout l'espace central) -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <!-- RecyclerView des apps -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvAppGrid"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="20dp"
+                    android:paddingVertical="8dp"
+                    android:clipToPadding="false"/>
+
+                <!-- Flèche droite pour page suivante -->
+                <TextView
+                    android:id="@+id/btnGridNextPage"
+                    android:layout_width="32dp"
+                    android:layout_height="60dp"
+                    android:layout_gravity="center_vertical|end"
+                    android:layout_marginEnd="4dp"
+                    android:gravity="center"
+                    android:text="›"
+                    android:textSize="24sp"
+                    android:textColor="@color/text_secondary"
+                    android:background="@drawable/ws_dot_inactive"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+                <!-- Flèche gauche -->
+                <TextView
+                    android:id="@+id/btnGridPrevPage"
+                    android:layout_width="32dp"
+                    android:layout_height="60dp"
+                    android:layout_gravity="center_vertical|start"
+                    android:layout_marginStart="4dp"
+                    android:gravity="center"
+                    android:text="‹"
+                    android:textSize="24sp"
+                    android:textColor="@color/text_secondary"
+                    android:background="@drawable/ws_dot_inactive"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone"/>
+            </FrameLayout>
+
+            <!-- Dots de pagination -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:orientation="horizontal"
+                android:layout_marginVertical="6dp">
+                <View android:layout_width="18dp" android:layout_height="4dp"
+                    android:background="@drawable/ws_dot_active" android:layout_marginEnd="5dp"/>
+                <View android:layout_width="8dp" android:layout_height="4dp"
+                    android:background="@drawable/ws_dot_inactive"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- DOCK (visible uniquement dans l'App Grid overlay) -->
+        <LinearLayout
+            android:id="@+id/dockContainer"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_gravity="bottom"
+            android:gravity="center"
+            android:background="@color/taskbar_bg"
+            android:orientation="horizontal"
+            android:elevation="24dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="@color/dash_bg"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="6dp">
+
+                    <!-- Apps épinglées dans le dock -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvDock"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"/>
+
+                    <View android:layout_width="1dp" android:layout_height="22dp"
+                        android:background="@color/divider_color"
+                        android:layout_marginHorizontal="4dp"/>
+
+                    <!-- Bouton explorateur fichiers -->
+                    <TextView
+                        android:id="@+id/btnDockFiles"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:gravity="center"
+                        android:text="📁"
+                        android:textSize="15sp"
+                        android:background="@drawable/dash_icon_bg"
+                        android:clickable="true"
+                        android:focusable="true"/>
+
+                    <!-- Bouton App Grid ⠿ (ferme l'overlay) -->
+                    <TextView
+                        android:id="@+id/btnGridClose"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:gravity="center"
+                        android:text="⠿"
+                        android:textSize="15sp"
+                        android:textColor="@color/accent_violet"
+                        android:background="@drawable/dash_icon_bg"
+                        android:clickable="true"
+                        android:focusable="true"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+    </FrameLayout>
+    <!-- fin appGridOverlay -->
+
+    <!-- ═══════════════════════════════════════════════════
+         TOP BAR — toujours visible
+         En mode normal : [🔷] [menu...]  [horloge]  [systray]
+         En mode App Grid : [🔷]   [🔍 Rechercher…]   [systray]
+    ═══════════════════════════════════════════════════ -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="28dp"
+        android:layout_height="26dp"
         android:background="@color/topbar_bg"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:elevation="24dp"
-        android:paddingHorizontal="8dp">
+        android:elevation="32dp"
+        android:paddingHorizontal="6dp">
 
+        <!-- Icône Bazzite (toujours présente, ouvre le menu) -->
         <TextView
-            android:id="@+id/btnActivities"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:id="@+id/btnBazziteIcon"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:gravity="center"
-            android:paddingHorizontal="10dp"
-            android:text="Activities"
-            android:textColor="@color/accent_violet"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:background="@drawable/topbar_btn_bg"
+            android:text="🔷"
+            android:textSize="13sp"
             android:clickable="true"
             android:focusable="true"/>
 
-        <View
-            android:id="@+id/btnBazziteMenu"
-            android:layout_width="8dp"
-            android:layout_height="8dp"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/bazzite_dot"
-            android:clickable="true"
-            android:focusable="true"/>
-
+        <!-- Mode NORMAL : nom app courante -->
         <TextView
             android:id="@+id/tvCurrentApp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="Bureau"
+            android:layout_marginStart="2dp"
+            android:text=""
             android:textColor="@color/text_secondary"
-            android:textSize="11sp"/>
+            android:textSize="11sp"
+            android:visibility="visible"/>
 
+        <!-- Mode APP GRID : barre de recherche (centrée) -->
+        <FrameLayout
+            android:id="@+id/searchBarContainer"
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="30dp"
+            android:background="@drawable/search_bar_bg"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:gravity="center"
+                android:text="🔍"
+                android:textSize="10sp"/>
+
+            <EditText
+                android:id="@+id/etAppGridSearch"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginStart="22dp"
+                android:background="@null"
+                android:hint="Rechercher des applications…"
+                android:textColorHint="@color/text_hint"
+                android:textColor="@color/text_primary"
+                android:textSize="11sp"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"/>
+        </FrameLayout>
+
+        <!-- Mode NORMAL : horloge centrée -->
         <TextView
             android:id="@+id/tvTopbarClock"
             android:layout_width="0dp"
@@ -247,26 +345,26 @@
             android:textSize="11sp"
             android:fontFamily="monospace"/>
 
-        <!-- Fond d'écran -->
+        <!-- Fond d'écran (toujours) -->
         <TextView
             android:id="@+id/btnWallpaper"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:gravity="center"
             android:text="🖼"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:clickable="true"
             android:focusable="true"
             android:layout_marginEnd="2dp"/>
 
-        <!-- App Store -->
+        <!-- Store -->
         <TextView
             android:id="@+id/btnAppStore"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:gravity="center"
             android:text="📦"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:clickable="true"
             android:focusable="true"
             android:layout_marginEnd="2dp"/>
@@ -278,38 +376,38 @@
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingHorizontal="5dp"
+            android:paddingHorizontal="4dp"
             android:clickable="true"
             android:focusable="true">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="🔊" android:textSize="10sp" android:paddingEnd="3dp"/>
+                android:text="🔊" android:textSize="9sp" android:paddingEnd="2dp"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="🛜" android:textSize="10sp" android:paddingEnd="3dp"/>
+                android:text="🛜" android:textSize="9sp" android:paddingEnd="2dp"/>
             <TextView android:id="@+id/tvBattery"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="88%" android:textColor="@color/text_secondary" android:textSize="10sp"/>
+                android:text="88%" android:textColor="@color/text_secondary" android:textSize="9sp"/>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Popup Bazzite -->
+    <!-- Menu Bazzite (popup top-left) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/popupBazziteMenu"
-        android:layout_width="190dp"
+        android:layout_width="160dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="30dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="28dp"
         android:visibility="gone"
         android:elevation="40dp"
         app:cardBackgroundColor="@color/popup_bg"
-        app:cardCornerRadius="10dp"
+        app:cardCornerRadius="8dp"
         app:cardElevation="12dp">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="vertical" android:padding="6dp">
-            <include layout="@layout/item_popup_menu_row" android:id="@+id/popupRowGaming"/>
-            <include layout="@layout/item_popup_menu_row" android:id="@+id/popupRowSteam"/>
-            <include layout="@layout/item_popup_menu_row" android:id="@+id/popupRowSettings"/>
-            <include layout="@layout/item_popup_menu_row" android:id="@+id/popupRowStore"/>
-        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/bazziteMenuList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingVertical="4dp"/>
     </androidx.cardview.widget.CardView>
 
     <!-- Popup Systray -->
@@ -318,7 +416,7 @@
         android:layout_width="190dp"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="28dp"
         android:layout_marginEnd="4dp"
         android:visibility="gone"
         android:elevation="40dp"
@@ -329,81 +427,17 @@
             android:orientation="vertical" android:padding="10dp">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="RÉSEAU" android:textColor="@color/text_hint" android:textSize="8sp"
-                android:letterSpacing="0.1" android:layout_marginBottom="4dp"/>
+                android:layout_marginBottom="4dp"/>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Wi-Fi · Connecté" android:textColor="@color/accent_green"
                 android:textSize="10sp" android:layout_marginBottom="8dp"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="BATTERIE" android:textColor="@color/text_hint" android:textSize="8sp"
-                android:letterSpacing="0.1" android:layout_marginBottom="3dp"/>
+                android:layout_marginBottom="3dp"/>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="88% · En charge" android:textColor="@color/text_primary"
                 android:textSize="10sp"/>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
-
-    <!-- ═══ TASKBAR / DASH ═══ -->
-    <LinearLayout
-        android:id="@+id/taskbarContainer"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_gravity="bottom"
-        android:gravity="center"
-        android:background="@color/taskbar_bg"
-        android:orientation="horizontal"
-        android:elevation="24dp">
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="wrap_content"
-            android:layout_height="44dp"
-            android:layout_gravity="center"
-            app:cardBackgroundColor="@color/dash_bg"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp">
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="6dp">
-
-                <!-- Apps épinglées -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvDash"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:orientation="horizontal"/>
-
-                <View android:layout_width="1dp" android:layout_height="22dp"
-                    android:background="@color/divider_color" android:layout_marginHorizontal="4dp"/>
-
-                <!-- Explorateur fichiers -->
-                <TextView
-                    android:id="@+id/btnFiles"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:gravity="center"
-                    android:text="📁"
-                    android:textSize="15sp"
-                    android:background="@drawable/dash_icon_bg"
-                    android:clickable="true"
-                    android:focusable="true"/>
-
-                <!-- Overview ⠿ -->
-                <TextView
-                    android:id="@+id/btnOverview"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:gravity="center"
-                    android:text="⠿"
-                    android:textSize="15sp"
-                    android:textColor="@color/text_secondary"
-                    android:background="@drawable/dash_icon_bg"
-                    android:clickable="true"
-                    android:focusable="true"/>
-
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-    </LinearLayout>
 
 </FrameLayout>
