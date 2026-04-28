@@ -366,4 +366,4 @@ private class FileListAdapter(context: Context, private val files: List<File>)
         bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} Mo"
         else -> "${bytes / (1024 * 1024 * 1024)} Go"
     }
-    }
+}
